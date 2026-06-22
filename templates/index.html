@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Scanner - Verification System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 30px 0 20px;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            color: #00dc52;
+            text-shadow: 0 0 20px rgba(0, 220, 82, 0.3);
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 1em;
+        }
+
+        .user-count {
+            display: inline-block;
+            background: #1a1a2e;
+            padding: 5px 15px;
+            border-radius: 20px;
+            margin-top: 10px;
+            font-size: 0.85em;
+            color: #aaa;
+            border: 1px solid #333;
+        }
+
+        /* Navigation */
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            padding: 12px 24px;
+            border: 2px solid #333;
+            background: #1a1a2e;
+            color: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            border-color: #00dc52;
+            background: #0d2818;
+        }
+
+        .nav-btn.active {
+            border-color: #00dc52;
+            background: #0d2818;
+            color: #00dc52;
+        }
+
+        .nav-btn.register { border-color: #00dc52; color: #00dc52; }
+        .nav-btn.verify { border-color: #00a0dc; color: #00a0dc; }
+        .nav-btn.users { border-color: #dcb400; color: #dcb400; }
+
+        /* Camera Section */
+        .camera-section {
+            position: relative;
+            margin: 20px auto;
+            max-width: 640px;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 2px solid #222;
+            background: #111;
+        }
+
+        #video {
+            width: 100%;
+            display: block;
+            transform: scaleX(-1);
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .face-indicator {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+
+        .face-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff3333;
+            animation: pulse 1.5s infinite;
+        }
+
+        .face-dot.detected {
+            background: #00dc52;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Action Area */
+        .action-area {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .action-btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-register {
+            background: #00dc52;
+            color: #000;
+        }
+
+        .btn-register:hover:not(:disabled) {
+            background: #00ff5e;
+            box-shadow: 0 0 20px rgba(0, 220, 82, 0.4);
+        }
+
+        .btn-verify {
+            background: #00a0dc;
+            color: #000;
+        }
+
+        .btn-verify:hover:not(:disabled) {
+            background: #00bfff;
+            box-shadow: 0 0 20px rgba(0, 160, 220, 0.4);
+        }
+
+        /* Name Input */
+        .name-input-section {
+            display: none;
+            text-align: center;
+            margin: 15px 0;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .name-input-section.show {
+            display: block;
+        }
+
+        .name-input {
+            padding: 12px 20px;
+            border: 2px solid #00dc52;
+            background: #1a1a2e;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 1.1em;
+            width: 250px;
+            text-align: center;
+            outline: none;
+        }
+
+        .name-input:focus {
+            box-shadow: 0 0 15px rgba(0, 220, 82, 0.3);
+        }
+
+        .name-submit {
+            padding: 12px 25px;
+            background: #00dc52;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        /* Result Panel */
+        .result-panel {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 500px;
+            border-radius: 15px;
+            animation: slideUp 0.4s ease;
+        }
+
+        .result-panel.show {
+            display: block;
+        }
+
+        .result-panel.granted {
+            background: linear-gradient(135deg, #0d2818, #1a3d2a);
+            border: 2px solid #00dc52;
+        }
+
+        .result-panel.denied {
+            background: linear-gradient(135deg, #2d0a0a, #3d1a1a);
+            border: 2px solid #dc0000;
+        }
+
+        .result-panel.error {
+            background: linear-gradient(135deg, #2d1f0a, #3d2a1a);
+            border: 2px solid #dc8c00;
+        }
+
+        .result-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .result-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .result-message {
+            color: #aaa;
+            font-size: 1em;
+        }
+
+        .confidence-bar {
+            margin: 15px auto;
+            width: 200px;
+            height: 8px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: #00dc52;
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        /* Users List */
+        .users-section {
+            display: none;
+            margin: 20px auto;
+            max-width: 500px;
+        }
+
+        .users-section.show {
+            display: block;
+        }
+
+        .users-section h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #dcb400;
+        }
+
+        .user-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 18px;
+            background: #1a1a2e;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border: 1px solid #2a2a3e;
+        }
+
+        .user-item .name {
+            font-weight: 500;
+        }
+
+        .user-item .id-badge {
+            background: #00a0dc;
+            color: #000;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .delete-btn {
+            background: none;
+            border: 1px solid #dc0000;
+            color: #dc0000;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.2s;
+        }
+
+        .delete-btn:hover {
+            background: #dc0000;
+            color: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 30px;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateX(120%);
+            transition: transform 0.3s ease;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            background: #0d2818;
+            border: 1px solid #00dc52;
+            color: #00dc52;
+        }
+
+        .toast.error {
+            background: #2d0a0a;
+            border: 1px solid #dc0000;
+            color: #dc0000;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top: 3px solid #00dc52;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.6em; }
+            .nav-btn { padding: 10px 16px; font-size: 0.85em; }
+            .action-btn { padding: 12px 25px; font-size: 1em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>&#128274; Face Scanner</h1>
+            <p>Verification System</p>
+            <div class="user-count">Registered Users: <span id="userCount">0</span></div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="nav">
+            <button class="nav-btn register active" onclick="setMode('register')">&#128100; Register</button>
+            <button class="nav-btn verify" onclick="setMode('verify')">&#128275; Verify</button>
+            <button class="nav-btn users" onclick="setMode('users')">&#128101; Users</button>
+        </div>
+
+        <!-- Camera -->
+        <div class="camera-section" id="cameraSection">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+            <div class="camera-overlay">
+                <div class="face-indicator">
+                    <div class="face-dot" id="faceDot"></div>
+                    <span id="faceStatus">No face</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-area" id="actionArea">
+            <button class="action-btn btn-register" id="btnRegister" onclick="captureForRegister()" disabled>
+                &#128247; Capture Face
+            </button>
+            <button class="action-btn btn-verify" id="btnVerify" onclick="captureForVerify()" style="display:none" disabled>
+                &#128275; Verify Identity
+            </button>
+        </div>
+
+        <!-- Name Input -->
+        <div class="name-input-section" id="nameSection">
+            <input type="text" class="name-input" id="nameInput" placeholder="Enter your name" maxlength="50"
+                   onkeydown="if(event.key==='Enter') submitRegistration()">
+            <button class="name-submit" onclick="submitRegistration()">Register &#10003;</button>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+
+        <!-- Result Panel -->
+        <div class="result-panel" id="resultPanel">
+            <div class="result-icon" id="resultIcon"></div>
+            <div class="result-title" id="resultTitle"></div>
+            <div class="result-message" id="resultMessage"></div>
+            <div class="confidence-bar" id="confidenceBar" style="display:none">
+                <div class="confidence-fill" id="confidenceFill"></div>
+            </div>
+        </div>
+
+        <!-- Users List -->
+        <div class="users-section" id="usersSection">
+            <h3>Registered Users</h3>
+            <div id="usersList"></div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let currentMode = 'register';
+        let faceDetected = false;
+        let capturedImage = null;
+        let detecting = false;
+
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Start camera
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    startFaceDetection();
+                };
+            } catch (err) {
+                showToast('Camera access denied. Please allow camera access.', 'error');
+            }
+        }
+
+        // Continuous face detection
+        function startFaceDetection() {
+            setInterval(async () => {
+                if (detecting || currentMode === 'users') return;
+                detecting = true;
+
+                const imageData = captureFrame();
+                try {
+                    const res = await fetch('/api/detect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: imageData })
+                    });
+                    const data = await res.json();
+
+                    const dot = document.getElementById('faceDot');
+                    const status = document.getElementById('faceStatus');
+
+                    if (data.count === 1) {
+                        faceDetected = true;
+                        dot.className = 'face-dot detected';
+                        status.textContent = 'Face detected';
+                        enableActionBtn(true);
+                    } else if (data.count > 1) {
+                        faceDetected = false;
+                        dot.className = 'face-dot';
+                        status.textContent = 'Multiple faces';
+                        enableActionBtn(false);
+                    } else {
+                        faceDetected = false;
+                        dot.className = 'face-dot';
+                        status.textContent = 'No face';
+                        enableActionBtn(false);
+                    }
+                } catch (e) {
+                    // Server not responding
+                }
+                detecting = false;
+            }, 500);
+        }
+
+        function captureFrame() {
+            ctx.drawImage(video, 0, 0);
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        function enableActionBtn(enabled) {
+            document.getElementById('btnRegister').disabled = !enabled;
+            document.getElementById('btnVerify').disabled = !enabled;
+        }
+
+        // Mode switching
+        function setMode(mode) {
+            currentMode = mode;
+
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            document.getElementById('cameraSection').style.display = mode === 'users' ? 'none' : 'block';
+            document.getElementById('actionArea').style.display = mode === 'users' ? 'none' : 'block';
+            document.getElementById('nameSection').classList.remove('show');
+            document.getElementById('resultPanel').classList.remove('show');
+            document.getElementById('usersSection').classList.remove('show');
+            document.getElementById('loading').classList.remove('show');
+
+            document.getElementById('btnRegister').style.display = mode === 'register' ? 'inline-block' : 'none';
+            document.getElementById('btnVerify').style.display = mode === 'verify' ? 'inline-block' : 'none';
+
+            if (mode === 'users') {
+                loadUsers();
+            }
+        }
+
+        // Registration
+        function captureForRegister() {
+            if (!faceDetected) return;
+            capturedImage = captureFrame();
+            document.getElementById('nameSection').classList.add('show');
+            document.getElementById('nameInput').focus();
+            document.getElementById('resultPanel').classList.remove('show');
+        }
+
+        async function submitRegistration() {
+            const name = document.getElementById('nameInput').value.trim();
+            if (!name) {
+                showToast('Please enter a name', 'error');
+                return;
+            }
+
+            document.getElementById('nameSection').classList.remove('show');
+            document.getElementById('loading').classList.add('show');
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: capturedImage, name: name })
+                });
+                const data = await res.json();
+
+                document.getElementById('loading').classList.remove('show');
+
+                if (data.success) {
+                    showResult('granted', '&#10003; Registered!', data.message, 0);
+                    showToast(`${name} registered successfully!`, 'success');
+                    updateUserCount();
+                } else {
+                    showResult('error', '&#9888; Registration Failed', data.error, 0);
+                }
+            } catch (e) {
+                document.getElementById('loading').classList.remove('show');
+                showResult('error', 'Error', 'Server error. Try again.', 0);
+            }
+
+            document.getElementById('nameInput').value = '';
+        }
+
+        // Verification
+        async function captureForVerify() {
+            if (!faceDetected) return;
+
+            const imageData = captureFrame();
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('resultPanel').classList.remove('show');
+
+            try {
+                const res = await fetch('/api/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await res.json();
+
+                document.getElementById('loading').classList.remove('show');
+
+                if (data.verified) {
+                    showResult('granted', '&#128275; Access Granted',
+                        `Welcome, ${data.name}!`, data.confidence);
+                } else if (data.error) {
+                    showResult('error', '&#9888; Error', data.error, 0);
+                } else {
+                    showResult('denied', '&#128274; Access Denied',
+                        'Face not recognized in the system.', 0);
+                }
+            } catch (e) {
+                document.getElementById('loading').classList.remove('show');
+                showResult('error', 'Error', 'Server error. Try again.', 0);
+            }
+        }
+
+        // Show result panel
+        function showResult(type, title, message, confidence) {
+            const panel = document.getElementById('resultPanel');
+            panel.className = `result-panel show ${type}`;
+            document.getElementById('resultTitle').innerHTML = title;
+            document.getElementById('resultMessage').textContent = message;
+
+            const bar = document.getElementById('confidenceBar');
+            if (confidence > 0) {
+                bar.style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('confidenceFill').style.width = confidence + '%';
+                }, 100);
+            } else {
+                bar.style.display = 'none';
+                document.getElementById('confidenceFill').style.width = '0%';
+            }
+        }
+
+        // Users list
+        async function loadUsers() {
+            const section = document.getElementById('usersSection');
+            section.classList.add('show');
+
+            try {
+                const res = await fetch('/api/users');
+                const data = await res.json();
+
+                const list = document.getElementById('usersList');
+                if (data.users.length === 0) {
+                    list.innerHTML = '<div class="empty-state">No users registered yet.<br>Go to Register mode to add faces.</div>';
+                } else {
+                    list.innerHTML = data.users.map(u => `
+                        <div class="user-item">
+                            <div>
+                                <span class="id-badge">ID ${u.id}</span>
+                                <span class="name">${u.name}</span>
+                            </div>
+                            <button class="delete-btn" onclick="deleteUser('${u.name}')">Delete</button>
+                        </div>
+                    `).join('');
+                }
+
+                document.getElementById('userCount').textContent = data.count;
+            } catch (e) {
+                document.getElementById('usersList').innerHTML = '<div class="empty-state">Error loading users</div>';
+            }
+        }
+
+        async function deleteUser(name) {
+            if (!confirm(`Delete user "${name}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/users/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast(`${name} deleted`, 'success');
+                    loadUsers();
+                    updateUserCount();
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (e) {
+                showToast('Error deleting user', 'error');
+            }
+        }
+
+        // Helpers
+        async function updateUserCount() {
+            try {
+                const res = await fetch('/api/users');
+                const data = await res.json();
+                document.getElementById('userCount').textContent = data.count;
+            } catch (e) {}
+        }
+
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Initialize
+        startCamera();
+        updateUserCount();
+    </script>
+</body>
+</html>

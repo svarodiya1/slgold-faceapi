@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Verification Required</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gate-container {
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .lock-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+            animation: float 2s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            color: #00dc52;
+        }
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+        }
+
+        /* Camera */
+        .camera-box {
+            position: relative;
+            border-radius: 50%;
+            width: 250px;
+            height: 250px;
+            margin: 0 auto 25px;
+            overflow: hidden;
+            border: 4px solid #222;
+            transition: border-color 0.5s;
+        }
+        .camera-box.scanning { border-color: #00dc52; box-shadow: 0 0 30px rgba(0, 220, 82, 0.3); }
+        .camera-box.denied { border-color: #dc0000; box-shadow: 0 0 30px rgba(220, 0, 0, 0.3); }
+        .camera-box.granted { border-color: #00dc52; box-shadow: 0 0 50px rgba(0, 220, 82, 0.5); }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #canvas { display: none; }
+
+        .scan-line {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #00dc52, transparent);
+            animation: scanMove 1.5s ease-in-out infinite;
+        }
+        .camera-box.scanning .scan-line { display: block; }
+
+        @keyframes scanMove {
+            0% { top: 0; }
+            50% { top: 100%; }
+            100% { top: 0; }
+        }
+
+        /* Status */
+        .status {
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            min-height: 30px;
+            transition: all 0.3s;
+        }
+        .status.scanning { color: #00dc52; }
+        .status.denied { color: #dc0000; }
+        .status.granted { color: #00dc52; }
+        .status.waiting { color: #888; }
+
+        /* Result */
+        .result-box {
+            display: none;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            animation: slideUp 0.4s ease;
+        }
+        .result-box.show { display: block; }
+        .result-box.granted {
+            background: linear-gradient(135deg, #0a2015, #0d3020);
+            border: 1px solid #00dc52;
+        }
+        .result-box.denied {
+            background: linear-gradient(135deg, #200a0a, #301010);
+            border: 1px solid #dc0000;
+        }
+        .result-box h2 { margin-bottom: 8px; }
+        .result-box p { color: #aaa; }
+
+        .confidence {
+            margin-top: 12px;
+            height: 6px;
+            background: #222;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            background: #00dc52;
+            border-radius: 10px;
+            width: 0;
+            transition: width 1s ease;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .btn-primary { background: #00dc52; color: #000; }
+        .btn-primary:hover { background: #00ff5e; box-shadow: 0 0 15px rgba(0, 220, 82, 0.4); }
+        .btn-outline { background: transparent; border: 2px solid #444; color: #ccc; }
+        .btn-outline:hover { border-color: #888; color: #fff; }
+
+        .links { margin-top: 20px; }
+        .links a { color: #666; text-decoration: none; font-size: 0.85em; margin: 0 10px; }
+        .links a:hover { color: #aaa; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="gate-container">
+        <div class="lock-icon">&#128274;</div>
+        <h1>Face Verification Required</h1>
+        <p class="subtitle">Look at the camera to access the system</p>
+
+        <div class="camera-box" id="cameraBox">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+            <div class="scan-line"></div>
+        </div>
+
+        <div class="status waiting" id="status">Initializing camera...</div>
+
+        <div class="result-box" id="resultBox">
+            <h2 id="resultTitle"></h2>
+            <p id="resultMessage"></p>
+            <div class="confidence" id="confidenceBar" style="display:none">
+                <div class="confidence-fill" id="confidenceFill"></div>
+            </div>
+        </div>
+
+        <div id="actions" style="display:none">
+            <button class="btn btn-primary" onclick="retryScan()">&#128260; Try Again</button>
+            <a href="/register" class="btn btn-outline">&#128100; Register Face</a>
+        </div>
+
+        <div class="links">
+            <a href="/register">Register New Face</a>
+            <a href="/admin/login">Admin Panel</a>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const cameraBox = document.getElementById('cameraBox');
+        const status = document.getElementById('status');
+        let scanning = false;
+        let verified = false;
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    startAutoScan();
+                };
+            } catch (err) {
+                status.textContent = 'Camera access required for verification';
+                status.className = 'status denied';
+                document.getElementById('actions').style.display = 'block';
+            }
+        }
+
+        function captureFrame() {
+            ctx.drawImage(video, 0, 0);
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        async function startAutoScan() {
+            status.textContent = 'Scanning your face...';
+            status.className = 'status scanning';
+            cameraBox.className = 'camera-box scanning';
+            scanning = true;
+
+            // Give user a moment to position face
+            await new Promise(r => setTimeout(r, 1500));
+
+            let attempts = 0;
+            const maxAttempts = 20; // Try for ~10 seconds
+
+            while (scanning && attempts < maxAttempts && !verified) {
+                attempts++;
+                const imageData = captureFrame();
+
+                try {
+                    const res = await fetch('/api/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: imageData })
+                    });
+                    const data = await res.json();
+
+                    if (data.verified) {
+                        // ACCESS GRANTED
+                        verified = true;
+                        scanning = false;
+                        cameraBox.className = 'camera-box granted';
+                        status.textContent = `Welcome, ${data.name}!`;
+                        status.className = 'status granted';
+
+                        showResult('granted',
+                            `&#10003; Access Granted`,
+                            `Welcome back, ${data.name}!`,
+                            data.confidence
+                        );
+
+                        // Redirect to protected page after 2 seconds
+                        setTimeout(() => {
+                            window.location.href = '/protected';
+                        }, 2500);
+                        return;
+                    }
+
+                    if (data.message === 'no_face') {
+                        status.textContent = 'Looking for face... Please look at camera';
+                    } else if (data.message === 'no_eyes') {
+                        status.textContent = 'Eyes not detected — look directly at camera';
+                    } else if (data.message === 'not_recognized') {
+                        // Face found but not recognized
+                        scanning = false;
+                        cameraBox.className = 'camera-box denied';
+                        status.textContent = 'Face not recognized';
+                        status.className = 'status denied';
+
+                        showResult('denied',
+                            '&#128274; Access Denied',
+                            'Your face is not registered in the system.',
+                            0
+                        );
+                        document.getElementById('actions').style.display = 'block';
+                        return;
+                    }
+                } catch (e) {
+                    // Server error, retry
+                }
+
+                await new Promise(r => setTimeout(r, 500));
+            }
+
+            // Timed out
+            if (!verified) {
+                scanning = false;
+                cameraBox.className = 'camera-box denied';
+                status.textContent = 'Could not verify face';
+                status.className = 'status denied';
+                showResult('denied', '&#9888; Verification Failed',
+                    'Could not detect or recognize your face. Try again or register.', 0);
+                document.getElementById('actions').style.display = 'block';
+            }
+        }
+
+        function showResult(type, title, message, confidence) {
+            const box = document.getElementById('resultBox');
+            box.className = `result-box show ${type}`;
+            document.getElementById('resultTitle').innerHTML = title;
+            document.getElementById('resultMessage').textContent = message;
+
+            if (confidence > 0) {
+                document.getElementById('confidenceBar').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('confidenceFill').style.width = confidence + '%';
+                }, 200);
+            }
+        }
+
+        function retryScan() {
+            document.getElementById('resultBox').className = 'result-box';
+            document.getElementById('actions').style.display = 'none';
+            document.getElementById('confidenceFill').style.width = '0%';
+            document.getElementById('confidenceBar').style.display = 'none';
+            verified = false;
+            startAutoScan();
+        }
+
+        startCamera();
+    </script>
+</body>
+</html>

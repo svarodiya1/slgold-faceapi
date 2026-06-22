@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Face Scanner</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #666;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+        .back-link:hover { color: #fff; }
+
+        h1 { color: #00dc52; margin-bottom: 5px; font-size: 1.8em; }
+        .subtitle { color: #888; margin-bottom: 30px; }
+
+        .camera-box {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            margin: 0 auto 25px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid #222;
+            transition: all 0.5s;
+        }
+        .camera-box.face-found { border-color: #00dc52; box-shadow: 0 0 25px rgba(0, 220, 82, 0.3); }
+        .camera-box.no-face { border-color: #444; }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        #canvas { display: none; }
+
+        .face-status {
+            margin-bottom: 20px;
+            font-size: 0.95em;
+            min-height: 25px;
+        }
+        .face-status.found { color: #00dc52; }
+        .face-status.not-found { color: #888; }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .name-input {
+            padding: 14px 20px;
+            border: 2px solid #333;
+            background: #111;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 1.1em;
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .name-input:focus { border-color: #00dc52; }
+
+        .btn {
+            padding: 14px 35px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.05em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-register { background: #00dc52; color: #000; }
+        .btn-register:hover:not(:disabled) { background: #00ff5e; box-shadow: 0 0 20px rgba(0, 220, 82, 0.4); }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+            animation: slideUp 0.3s ease;
+        }
+        .message.show { display: block; }
+        .message.success { background: #0d2818; border: 1px solid #00dc52; color: #00dc52; }
+        .message.error { background: #200a0a; border: 1px solid #dc0000; color: #dc0000; }
+
+        .loading { display: none; margin: 15px 0; }
+        .loading.show { display: block; }
+        .spinner {
+            width: 30px; height: 30px;
+            border: 3px solid #333;
+            border-top-color: #00dc52;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">&larr; Back to Gate</a>
+
+    <div class="container">
+        <h1>&#128100; Register Face</h1>
+        <p class="subtitle">Add your face to the system for future access</p>
+
+        <div class="camera-box no-face" id="cameraBox">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="face-status not-found" id="faceStatus">Looking for face...</div>
+
+        <div class="form-group">
+            <input type="text" class="name-input" id="nameInput"
+                   placeholder="Enter your name" maxlength="50"
+                   onkeydown="if(event.key==='Enter') register()">
+        </div>
+
+        <button class="btn btn-register" id="btnRegister" onclick="register()" disabled>
+            Register Face
+        </button>
+
+        <div class="loading" id="loading"><div class="spinner"></div></div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let faceDetected = false;
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    startDetection();
+                };
+            } catch (err) {
+                document.getElementById('faceStatus').textContent = 'Camera access denied';
+            }
+        }
+
+        function startDetection() {
+            setInterval(async () => {
+                const frame = captureFrame();
+                try {
+                    const res = await fetch('/api/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: frame })
+                    });
+                    // We just check if a face is detected (ignore verification result)
+                    const data = await res.json();
+
+                    const box = document.getElementById('cameraBox');
+                    const status = document.getElementById('faceStatus');
+                    const btn = document.getElementById('btnRegister');
+
+                    if (data.message !== 'no_face' || data.verified) {
+                        faceDetected = true;
+                        box.className = 'camera-box face-found';
+                        status.textContent = '&#10003; Face detected - Ready to register';
+                        status.className = 'face-status found';
+                        btn.disabled = !document.getElementById('nameInput').value.trim();
+                    } else {
+                        faceDetected = false;
+                        box.className = 'camera-box no-face';
+                        status.textContent = 'Looking for face... Please look at camera';
+                        status.className = 'face-status not-found';
+                        btn.disabled = true;
+                    }
+                } catch (e) {}
+            }, 600);
+        }
+
+        // Enable button when name is typed
+        document.getElementById('nameInput').addEventListener('input', () => {
+            const btn = document.getElementById('btnRegister');
+            btn.disabled = !faceDetected || !document.getElementById('nameInput').value.trim();
+        });
+
+        function captureFrame() {
+            ctx.drawImage(video, 0, 0);
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        async function register() {
+            const name = document.getElementById('nameInput').value.trim();
+            if (!name || !faceDetected) return;
+
+            const imageData = captureFrame();
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('message').classList.remove('show');
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData, name: name })
+                });
+                const data = await res.json();
+                document.getElementById('loading').classList.remove('show');
+
+                const msg = document.getElementById('message');
+                if (data.success) {
+                    msg.className = 'message show success';
+                    msg.innerHTML = `&#10003; ${data.message}<br><br><a href="/" style="color:#00dc52">Go to Face Gate &rarr;</a>`;
+                    document.getElementById('nameInput').value = '';
+                } else {
+                    msg.className = 'message show error';
+                    msg.textContent = data.error;
+                }
+            } catch (e) {
+                document.getElementById('loading').classList.remove('show');
+                const msg = document.getElementById('message');
+                msg.className = 'message show error';
+                msg.textContent = 'Server error. Try again.';
+            }
+        }
+
+        startCamera();
+    </script>
+</body>
+</html>

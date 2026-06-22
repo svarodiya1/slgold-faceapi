@@ -1,0 +1,6 @@
+.env
+face_database.db
+__pycache__/
+*.pyc
+static/faces/
+models/

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protected Area - Welcome</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0a0a0f;
+            color: #fff;
+            min-height: 100vh;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: #111118;
+            border-bottom: 1px solid #222;
+        }
+        .topbar .brand { color: #00dc52; font-weight: 700; font-size: 1.1em; }
+        .topbar .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .topbar .user-badge {
+            background: #0d2818;
+            border: 1px solid #00dc52;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            color: #00dc52;
+        }
+        .logout-btn {
+            background: none;
+            border: 1px solid #444;
+            color: #aaa;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .logout-btn:hover { border-color: #dc0000; color: #dc0000; }
+
+        .main {
+            max-width: 800px;
+            margin: 60px auto;
+            padding: 0 20px;
+            text-align: center;
+        }
+        .welcome-icon { font-size: 4em; margin-bottom: 15px; }
+        h1 { font-size: 2em; margin-bottom: 10px; }
+        .welcome-sub { color: #888; font-size: 1.1em; margin-bottom: 40px; }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .card {
+            background: #13131f;
+            border: 1px solid #222;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .card:hover { border-color: #00dc52; transform: translateY(-3px); }
+        .card-icon { font-size: 2em; margin-bottom: 10px; }
+        .card h3 { margin-bottom: 8px; font-size: 1em; }
+        .card p { color: #666; font-size: 0.85em; }
+
+        .verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #0d2818;
+            border: 1px solid #00dc52;
+            padding: 8px 18px;
+            border-radius: 20px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #00dc52;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="brand">&#128274; Face Scanner</span>
+        <div class="user-info">
+            <span class="user-badge">&#128100; {{ user }}</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="welcome-icon">&#127881;</div>
+        <h1>Welcome, {{ user }}!</h1>
+        <p class="welcome-sub">You have been verified and granted access to the system.</p>
+
+        <div class="verified-badge">
+            &#10003; Identity Verified via Face Scan
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <div class="card-icon">&#128202;</div>
+                <h3>Dashboard</h3>
+                <p>View your activity and system stats</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128196;</div>
+                <h3>Documents</h3>
+                <p>Access protected documents</p>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#9881;</div>
+                <h3>Settings</h3>
+                <p>Manage your profile settings</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
