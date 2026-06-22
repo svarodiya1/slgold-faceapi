@@ -15,6 +15,9 @@ from flask_cors import CORS
 
 from database import init_db, save_user, get_all_users, delete_user, get_user_count, mark_attendance
 
+# Initialize database tables
+init_db()
+
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 CORS(app)  # Allow cross-origin requests from the React dev client
