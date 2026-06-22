@@ -4,5 +4,5 @@ numpy
 flask
 flask-cors
 python-dotenv
-mysql-connector-python
+requests
 gunicorn
