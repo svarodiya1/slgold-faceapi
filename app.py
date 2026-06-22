@@ -29,7 +29,7 @@ CAFFEMODEL = os.path.join(MODELS_DIR, "res10_300x300_ssd_iter_140000.caffemodel"
 DETECTION_CONFIDENCE = 0.75
 # Chi-squared distance threshold: LOWER distance = more similar faces
 # Same person typically scores 10-30, different person scores 80+
-MATCH_THRESHOLD = 25
+MATCH_THRESHOLD = 18
 
 net = None
 eye_cascade = None
